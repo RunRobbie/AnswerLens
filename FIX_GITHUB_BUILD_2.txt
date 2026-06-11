@@ -1,0 +1,31 @@
+GitHub build fix #2
+
+The previous build failed because build.gradle.kts treated the entire repository root as Kotlin source:
+
+    java.srcDirs(".")
+
+That made Gradle think compileDebugKotlin was using outputs created by asset/shader/resource tasks inside the same project folder. Gradle 8.10 blocks that as an implicit dependency problem.
+
+This fixed version avoids using the repository root as a source folder.
+
+What changed:
+
+1. build.gradle.kts now uses the normal Android source layout.
+2. build-debug-apk.yml now creates the normal Android source tree during GitHub Actions:
+
+    src/main/AndroidManifest.xml
+    src/main/java/com/example/answerlens/*.kt
+    src/main/java/com/example/answerlens/models/*.kt
+
+3. The root-level files are still kept flat so they are easy to upload through GitHub.
+
+Replace these two files in your repo:
+
+    build.gradle.kts
+    .github/workflows/build-debug-apk.yml
+
+The workflow file must still be placed at:
+
+    .github/workflows/build-debug-apk.yml
+
+Then run the GitHub Action again.

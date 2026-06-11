@@ -1,0 +1,22 @@
+GitHub build fix
+================
+
+The failed build was hitting the Gradle setup step before the app source code compiled.
+
+Fix:
+1. Open your repo on GitHub.
+2. Open this file path:
+   .github/workflows/build-debug-apk.yml
+3. Replace the entire file with the contents of build-debug-apk.yml from this zip.
+4. Commit the change.
+5. Go to Actions.
+6. Run "Build AnswerLens Debug APK" again.
+
+What changed:
+- Updated Gradle setup to gradle/actions/setup-gradle@v6.
+- Added Android SDK setup using android-actions/setup-android@v3.
+- Explicitly installs Android API 35, Build Tools 35.0.0, and platform-tools.
+- Adds a tool verification step so the log shows Java, Gradle, and repo files.
+- Finds the APK dynamically instead of assuming one exact output filename.
+
+If the next run fails later at "Build debug APK," open that step and copy the first red error block. That means the workflow is fixed and the next issue is a Kotlin/Android compile error.

@@ -1,0 +1,13 @@
+Upload method for this flat project:
+
+1. Unzip AnswerLens_OneFolder.zip.
+2. Open the AnswerLens_OneFolder folder.
+3. Select all files inside it.
+4. Upload those files to the root of your GitHub repository.
+5. Commit the upload.
+6. In GitHub, click Add file > Create new file.
+7. Name the new file exactly: .github/workflows/build-debug-apk.yml
+8. Copy the contents of build-debug-apk.yml into that new file.
+9. Commit it.
+10. Go to Actions > Build AnswerLens Debug APK > Run workflow.
+11. Download the AnswerLens-debug-apk artifact.
