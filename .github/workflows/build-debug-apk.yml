@@ -40,6 +40,7 @@ jobs:
           rm -rf src
           mkdir -p src/main/java/com/example/answerlens/models
           cp AndroidManifest.xml src/main/AndroidManifest.xml
+
           for file in *.kt; do
             if grep -q "package com.example.answerlens.models" "$file"; then
               cp "$file" src/main/java/com/example/answerlens/models/
@@ -47,27 +48,34 @@ jobs:
               cp "$file" src/main/java/com/example/answerlens/
             fi
           done
+
           echo "Prepared source tree:"
           find src/main -type f | sort
 
-      - name: Verify tools
+      - name: Verify prepared files
         run: |
-          java -version
-          gradle --version
+          echo "Root files:"
           ls -la
+          echo "Source files:"
+          find src/main -type f | sort
+          echo "Gradle version:"
+          gradle --version
 
       - name: Build debug APK
-        run: gradle assembleDebug --stacktrace --no-daemon
+        run: |
+          gradle clean assembleDebug --stacktrace --no-daemon
 
       - name: Collect APK
         run: |
           mkdir -p out
           APK_PATH=$(find . -type f -path "*/build/outputs/apk/debug/*.apk" | head -n 1)
+
           if [ -z "$APK_PATH" ]; then
             echo "No APK was found. Build output tree:"
-            find . -maxdepth 6 -type f | sort
+            find . -maxdepth 8 -type f | sort
             exit 1
           fi
+
           echo "Found APK at $APK_PATH"
           cp "$APK_PATH" out/AnswerLens-debug.apk
           ls -lh out/AnswerLens-debug.apk
