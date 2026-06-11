@@ -5,12 +5,19 @@ import com.example.answerlens.models.ParsedQuestion
 object QuestionParser {
     private val labeledChoice = Regex("^\\s*([A-Ha-h]|[1-9][0-9]?)\\s*[.)]\\s+(.+)$")
     private val trueFalseLine = Regex("^\\s*(true|false)\\s*$", RegexOption.IGNORE_CASE)
+    private val radioPrefix = Regex("^\\s*[○◯●◉oO0]\\s+")
 
     fun parse(rawText: String): ParsedQuestion {
         val cleaned = clean(rawText)
-        val lines = cleaned.lines().map { it.trim() }.filter { it.isNotBlank() }
+        val lines = cleaned.lines()
+            .map { normalizeLine(it) }
+            .filter { it.isNotBlank() && !isNoiseLine(it) }
+            .fold(mutableListOf<String>()) { acc, line ->
+                if (acc.lastOrNull() != line) acc.add(line)
+                acc
+            }
 
-        val choices = mutableListOf<String>()
+        val labeledChoices = mutableListOf<String>()
         val nonChoiceLines = mutableListOf<String>()
 
         for (line in lines) {
@@ -19,14 +26,25 @@ object QuestionParser {
                 choiceMatch != null -> {
                     val label = choiceMatch.groupValues[1].uppercase()
                     val value = choiceMatch.groupValues[2].trim()
-                    choices.add("$label. $value")
+                    labeledChoices.add("$label. $value")
                 }
-                trueFalseLine.matches(line) -> choices.add(line.replaceFirstChar { it.uppercase() })
+                trueFalseLine.matches(line) -> labeledChoices.add(line.replaceFirstChar { it.uppercase() })
                 else -> nonChoiceLines.add(line)
             }
         }
 
-        val question = detectQuestion(nonChoiceLines, lines)
+        val questionIndex = detectQuestionIndex(nonChoiceLines)
+        val question = when {
+            questionIndex >= 0 -> nonChoiceLines[questionIndex]
+            else -> detectQuestion(nonChoiceLines, lines)
+        }
+
+        val choices = if (labeledChoices.isNotEmpty()) {
+            labeledChoices
+        } else {
+            detectUnlabeledChoices(nonChoiceLines, questionIndex)
+        }
+
         val type = detectType(question, choices)
         val topic = detectTopic(cleaned)
 
@@ -62,6 +80,62 @@ object QuestionParser {
             if (deduped.lastOrNull() != line) deduped.add(line)
         }
         return deduped.joinToString("\n")
+    }
+
+    private fun normalizeLine(line: String): String {
+        return line.trim()
+            .replace(Regex("\\s+"), " ")
+            .replace(radioPrefix, "")
+            .trim()
+    }
+
+    private fun isNoiseLine(line: String): Boolean {
+        val lower = line.lowercase().trim()
+        return lower.matches(Regex("question\\s*\\d+")) ||
+                lower.matches(Regex("lesson\\s*\\d+\\s*quiz")) ||
+                lower.matches(Regex("\\d+%\\s*complete")) ||
+                lower in setOf("next", "previous", "submit", "close", "analyze", "answerlens") ||
+                lower.length <= 1
+    }
+
+    private fun detectQuestionIndex(lines: List<String>): Int {
+        if (lines.isEmpty()) return -1
+
+        val blankIndex = lines.indexOfFirst { it.contains("____") || it.contains("_____") || it.contains("[blank]", true) }
+        if (blankIndex >= 0) return blankIndex
+
+        val questionMarkIndex = lines.indexOfLast { it.endsWith("?") }
+        if (questionMarkIndex >= 0) return questionMarkIndex
+
+        val instructionWords = listOf(
+            "which", "what", "when", "where", "why", "how", "select", "choose",
+            "identify", "define", "fill", "complete", "true or false"
+        )
+        return lines.indexOfLast { line ->
+            val lower = line.lowercase()
+            instructionWords.any { lower.contains(it) }
+        }
+    }
+
+    private fun detectUnlabeledChoices(lines: List<String>, questionIndex: Int): MutableList<String> {
+        if (questionIndex < 0 || questionIndex >= lines.lastIndex) return mutableListOf()
+
+        val choices = mutableListOf<String>()
+        for (line in lines.drop(questionIndex + 1)) {
+            if (isNoiseLine(line)) continue
+            if (line.endsWith("?") && choices.isNotEmpty()) break
+            if (looksLikeChoice(line)) choices.add(line)
+            if (choices.size >= 8) break
+        }
+        return choices
+    }
+
+    private fun looksLikeChoice(line: String): Boolean {
+        val lower = line.lowercase()
+        if (lower.startsWith("detected question") || lower.startsWith("likely answer")) return false
+        if (lower.startsWith("explanation") || lower.startsWith("confidence")) return false
+        if (line.length < 2 || line.length > 180) return false
+        return true
     }
 
     private fun detectQuestion(nonChoiceLines: List<String>, allLines: List<String>): String {
@@ -101,6 +175,7 @@ object QuestionParser {
             listOf("sql", "select", "join", "database", "primary key", "foreign key").any { lower.contains(it) } -> "Databases / SQL"
             listOf("python", "def ", "tuple", "dictionary", "list comprehension").any { lower.contains(it) } -> "Python programming"
             listOf("html", "css", "javascript", "dom", "selector").any { lower.contains(it) } -> "Web development"
+            listOf("algorithm", "programmer", "programming instructions", "math and logic").any { lower.contains(it) } -> "Programming basics"
             listOf("network", "tcp", "udp", "ip address", "dns", "router", "subnet").any { lower.contains(it) } -> "Networking"
             listOf("agile", "scrum", "sprint", "product owner", "stakeholder").any { lower.contains(it) } -> "Project management / Agile"
             listOf("security", "encryption", "authentication", "authorization", "malware").any { lower.contains(it) } -> "Cybersecurity"

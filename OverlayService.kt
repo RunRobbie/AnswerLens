@@ -1,9 +1,14 @@
 package com.example.answerlens
 
 import android.app.Service
+import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Paint
 import android.graphics.PixelFormat
+import android.graphics.RectF
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.Handler
@@ -16,6 +21,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
 import android.widget.Button
+import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -24,20 +30,27 @@ import com.example.answerlens.models.AnswerMode
 import com.example.answerlens.models.AnswerResult
 import com.example.answerlens.models.ParsedQuestion
 import java.text.NumberFormat
+import kotlin.math.abs
 
 class OverlayService : Service() {
     private lateinit var windowManager: WindowManager
     private val mainHandler = Handler(Looper.getMainLooper())
     private var bubble: Button? = null
     private var bubbleParams: WindowManager.LayoutParams? = null
+    private var areaBubble: Button? = null
+    private var areaBubbleParams: WindowManager.LayoutParams? = null
+    private var closeBubble: Button? = null
+    private var closeBubbleParams: WindowManager.LayoutParams? = null
     private var panel: View? = null
+    private var panelParams: WindowManager.LayoutParams? = null
+    private var selectorOverlay: View? = null
     private var lastParsedQuestion: ParsedQuestion? = null
     private var lastAnswerResult: AnswerResult? = null
 
     override fun onCreate() {
         super.onCreate()
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
-        if (canDrawOverlays()) createBubble()
+        if (canDrawOverlays()) createBubbles()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -46,12 +59,13 @@ class OverlayService : Service() {
             stopSelf()
             return START_NOT_STICKY
         }
-        if (bubble == null && Prefs.bubbleEnabled(this)) createBubble()
+        if (bubble == null && Prefs.bubbleEnabled(this)) createBubbles()
         return START_STICKY
     }
 
-    private fun createBubble() {
+    private fun createBubbles() {
         if (!Prefs.bubbleEnabled(this) || bubble != null) return
+
         bubble = Button(this).apply {
             text = "Analyze"
             setAllCaps(false)
@@ -59,35 +73,73 @@ class OverlayService : Service() {
             setTextColor(Color.WHITE)
             background = roundRect("#2563EB", dp(18))
         }
-
         bubbleParams = overlayParams(
             width = WindowManager.LayoutParams.WRAP_CONTENT,
             height = WindowManager.LayoutParams.WRAP_CONTENT,
             x = dp(18),
             y = dp(160)
         )
-
-        bubble?.setOnTouchListener(DragTouchListener(windowManager, bubbleParams!!) {
-            analyze()
-        })
-
+        bubble?.setOnTouchListener(DragTouchListener(windowManager, bubbleParams!!) { analyze() })
         windowManager.addView(bubble, bubbleParams)
+
+        areaBubble = Button(this).apply {
+            text = "Area"
+            setAllCaps(false)
+            textSize = 14f
+            setTextColor(Color.WHITE)
+            background = roundRect("#0F766E", dp(18))
+        }
+        areaBubbleParams = overlayParams(
+            width = WindowManager.LayoutParams.WRAP_CONTENT,
+            height = WindowManager.LayoutParams.WRAP_CONTENT,
+            x = dp(116),
+            y = dp(160)
+        )
+        areaBubble?.setOnTouchListener(DragTouchListener(windowManager, areaBubbleParams!!) { showAreaSelector() })
+        windowManager.addView(areaBubble, areaBubbleParams)
+
+        closeBubble = Button(this).apply {
+            text = "Exit"
+            setAllCaps(false)
+            textSize = 14f
+            setTextColor(Color.WHITE)
+            background = roundRect("#DC2626", dp(18))
+        }
+        closeBubbleParams = overlayParams(
+            width = WindowManager.LayoutParams.WRAP_CONTENT,
+            height = WindowManager.LayoutParams.WRAP_CONTENT,
+            x = dp(188),
+            y = dp(160)
+        )
+        closeBubble?.setOnTouchListener(DragTouchListener(windowManager, closeBubbleParams!!) { shutdownAnswerLens() })
+        windowManager.addView(closeBubble, closeBubbleParams)
     }
 
     private fun analyze() {
         setBubbleText("Reading…")
         removePanel()
+        removeSelector()
+        setBubblesVisible(false)
 
         ScreenCaptureService.captureCurrentScreen { bitmap, captureError ->
             if (bitmap == null) {
-                mainHandler.post { showError(captureError ?: "Capture failed.") }
+                mainHandler.post {
+                    setBubblesVisible(true)
+                    showError(captureError ?: "Capture failed.")
+                }
                 return@captureCurrentScreen
             }
 
-            OcrProcessor().recognize(bitmap) { rawText, ocrError ->
-                bitmap.recycle()
+            val ocrBitmap = cropToAnalysisRegion(bitmap)
+            if (ocrBitmap !== bitmap) bitmap.recycle()
+
+            OcrProcessor().recognize(ocrBitmap) { rawText, ocrError ->
+                ocrBitmap.recycle()
                 if (ocrError != null) {
-                    mainHandler.post { showError(ocrError) }
+                    mainHandler.post {
+                        setBubblesVisible(true)
+                        showError(ocrError)
+                    }
                     return@recognize
                 }
 
@@ -96,6 +148,7 @@ class OverlayService : Service() {
                 AnswerEngine(applicationContext).answer(parsed) { answerResult, answerError ->
                     mainHandler.post {
                         lastAnswerResult = answerResult
+                        setBubblesVisible(true)
                         setBubbleText("Analyze")
                         showResultPanel(parsed, answerResult, answerError)
                         if (Prefs.saveHistory(this) && Prefs.answerMode(this) != AnswerMode.EXPLAIN) {
@@ -104,6 +157,25 @@ class OverlayService : Service() {
                     }
                 }
             }
+        }
+    }
+
+    private fun cropToAnalysisRegion(bitmap: Bitmap): Bitmap {
+        val region = Prefs.analysisRegion(this) ?: return bitmap
+        if (bitmap.width < 20 || bitmap.height < 20) return bitmap
+
+        val left = (region.left * bitmap.width).toInt().coerceIn(0, bitmap.width - 2)
+        val top = (region.top * bitmap.height).toInt().coerceIn(0, bitmap.height - 2)
+        val right = (region.right * bitmap.width).toInt().coerceIn(left + 2, bitmap.width)
+        val bottom = (region.bottom * bitmap.height).toInt().coerceIn(top + 2, bitmap.height)
+        val cropWidth = right - left
+        val cropHeight = bottom - top
+        if (cropWidth < 20 || cropHeight < 20) return bitmap
+
+        return try {
+            Bitmap.createBitmap(bitmap, left, top, cropWidth, cropHeight)
+        } catch (_: Exception) {
+            bitmap
         }
     }
 
@@ -117,9 +189,10 @@ class OverlayService : Service() {
         }
 
         val title = TextView(this).apply {
-            text = "AnswerLens"
+            text = "AnswerLens  •  drag here"
             textSize = 18f
             setTextColor(Color.WHITE)
+            setPadding(0, 0, 0, dp(4))
         }
         content.addView(title, matchWrap())
 
@@ -151,12 +224,17 @@ class OverlayService : Service() {
             setPadding(0, dp(8), 0, 0)
         }
         buttonRow.addView(panelButton("Analyze again") { analyze() })
+        buttonRow.addView(panelButton("Select analysis area") { showAreaSelector() })
+        buttonRow.addView(panelButton("Clear analysis area") {
+            Prefs.clearAnalysisRegion(this)
+            Toast.makeText(this, "Analysis area cleared. Next analyze will use full screen.", Toast.LENGTH_SHORT).show()
+        })
         buttonRow.addView(panelButton("Save to history") {
             HistoryRepository.save(this, parsed, result)
             Toast.makeText(this, "Saved to history.", Toast.LENGTH_SHORT).show()
         })
         buttonRow.addView(panelButton("Minimize") { removePanel() })
-        buttonRow.addView(panelButton("Close") { stopSelf() })
+        buttonRow.addView(panelButton("Close AnswerLens") { shutdownAnswerLens() })
         content.addView(buttonRow, matchWrap())
 
         val scroll = ScrollView(this).apply {
@@ -169,9 +247,68 @@ class OverlayService : Service() {
             x = dp(14),
             y = dp(80)
         )
+        title.setOnTouchListener(DragTouchListener(windowManager, params, scroll) {})
 
         panel = scroll
+        panelParams = params
         windowManager.addView(scroll, params)
+    }
+
+    private fun showAreaSelector() {
+        removePanel()
+        removeSelector()
+
+        val selectorView = AreaSelectionView(this)
+        val root = FrameLayout(this).apply {
+            setBackgroundColor(Color.TRANSPARENT)
+        }
+        root.addView(selectorView, FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.MATCH_PARENT
+        ))
+
+        val instructions = TextView(this).apply {
+            text = "Drag or resize the box around the question and choices"
+            setTextColor(Color.WHITE)
+            textSize = 15f
+            setPadding(dp(12), dp(10), dp(12), dp(10))
+            background = roundRect("#111827", dp(12), strokeColor = "#334155")
+        }
+        root.addView(instructions, FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            Gravity.TOP
+        ).apply { setMargins(dp(10), dp(16), dp(10), 0) })
+
+        val controls = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(dp(10), dp(8), dp(10), dp(14))
+            background = roundRect("#111827", dp(12), strokeColor = "#334155")
+        }
+        controls.addView(selectionButton("Save area") {
+            Prefs.saveAnalysisRegion(this, selectorView.normalizedRegion())
+            removeSelector()
+            Toast.makeText(this, "Analysis area saved. Tap Analyze.", Toast.LENGTH_SHORT).show()
+        })
+        controls.addView(selectionButton("Clear") {
+            Prefs.clearAnalysisRegion(this)
+            removeSelector()
+            Toast.makeText(this, "Analysis area cleared.", Toast.LENGTH_SHORT).show()
+        })
+        controls.addView(selectionButton("Cancel") { removeSelector() })
+        root.addView(controls, FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            Gravity.BOTTOM
+        ).apply { setMargins(dp(10), 0, dp(10), dp(18)) })
+
+        selectorOverlay = root
+        windowManager.addView(root, overlayParams(
+            width = WindowManager.LayoutParams.MATCH_PARENT,
+            height = WindowManager.LayoutParams.MATCH_PARENT,
+            x = 0,
+            y = 0
+        ))
     }
 
     private fun showError(message: String) {
@@ -208,8 +345,32 @@ class OverlayService : Service() {
         setOnClickListener { onClick() }
     }
 
+    private fun selectionButton(text: String, onClick: () -> Unit): Button = Button(this).apply {
+        this.text = text
+        setAllCaps(false)
+        setOnClickListener { onClick() }
+        layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+            setMargins(dp(4), 0, dp(4), 0)
+        }
+    }
+
     private fun setBubbleText(text: String) {
         mainHandler.post { bubble?.text = text }
+    }
+
+    private fun setBubblesVisible(visible: Boolean) {
+        val visibility = if (visible) View.VISIBLE else View.INVISIBLE
+        bubble?.visibility = visibility
+        areaBubble?.visibility = visibility
+        closeBubble?.visibility = visibility
+    }
+
+    private fun shutdownAnswerLens() {
+        removePanel()
+        removeSelector()
+        Toast.makeText(this, "AnswerLens closed.", Toast.LENGTH_SHORT).show()
+        stopService(Intent(this, ScreenCaptureService::class.java).setAction(ScreenCaptureService.ACTION_STOP))
+        stopSelf()
     }
 
     private fun removePanel() {
@@ -217,6 +378,14 @@ class OverlayService : Service() {
             try { windowManager.removeView(it) } catch (_: Exception) {}
         }
         panel = null
+        panelParams = null
+    }
+
+    private fun removeSelector() {
+        selectorOverlay?.let {
+            try { windowManager.removeView(it) } catch (_: Exception) {}
+        }
+        selectorOverlay = null
     }
 
     private fun overlayParams(width: Int, height: Int, x: Int, y: Int): WindowManager.LayoutParams {
@@ -260,10 +429,19 @@ class OverlayService : Service() {
 
     override fun onDestroy() {
         removePanel()
+        removeSelector()
         bubble?.let {
             try { windowManager.removeView(it) } catch (_: Exception) {}
         }
+        areaBubble?.let {
+            try { windowManager.removeView(it) } catch (_: Exception) {}
+        }
+        closeBubble?.let {
+            try { windowManager.removeView(it) } catch (_: Exception) {}
+        }
         bubble = null
+        areaBubble = null
+        closeBubble = null
         super.onDestroy()
     }
 
@@ -272,6 +450,7 @@ class OverlayService : Service() {
     private inner class DragTouchListener(
         private val wm: WindowManager,
         private val params: WindowManager.LayoutParams,
+        private val targetView: View? = null,
         private val onClick: () -> Unit
     ) : View.OnTouchListener {
         private var initialX = 0
@@ -281,6 +460,7 @@ class OverlayService : Service() {
         private var moved = false
 
         override fun onTouch(view: View, event: MotionEvent): Boolean {
+            val target = targetView ?: view
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
                     initialX = params.x
@@ -293,10 +473,10 @@ class OverlayService : Service() {
                 MotionEvent.ACTION_MOVE -> {
                     val dx = event.rawX - initialTouchX
                     val dy = event.rawY - initialTouchY
-                    if (kotlin.math.abs(dx) > dp(6) || kotlin.math.abs(dy) > dp(6)) moved = true
+                    if (abs(dx) > dp(6) || abs(dy) > dp(6)) moved = true
                     params.x = initialX + dx.toInt()
                     params.y = initialY + dy.toInt()
-                    wm.updateViewLayout(view, params)
+                    wm.updateViewLayout(target, params)
                     return true
                 }
                 MotionEvent.ACTION_UP -> {
@@ -306,5 +486,142 @@ class OverlayService : Service() {
             }
             return false
         }
+    }
+
+    private inner class AreaSelectionView(context: Context) : View(context) {
+        private val shadePaint = Paint().apply { color = Color.argb(115, 0, 0, 0) }
+        private val fillPaint = Paint().apply { color = Color.argb(55, 37, 99, 235) }
+        private val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.rgb(250, 204, 21)
+            style = Paint.Style.STROKE
+            strokeWidth = dp(3).toFloat()
+        }
+        private val handlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.WHITE
+            style = Paint.Style.FILL
+        }
+        private val rect = RectF()
+        private var initialized = false
+        private var mode = Mode.NONE
+        private var lastX = 0f
+        private var lastY = 0f
+        private val minSize = dp(80).toFloat()
+        private val handleSize = dp(34).toFloat()
+
+        override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+            super.onSizeChanged(w, h, oldw, oldh)
+            if (!initialized && w > 0 && h > 0) {
+                val saved = Prefs.analysisRegion(this@OverlayService)
+                if (saved != null) {
+                    rect.set(saved.left * w, saved.top * h, saved.right * w, saved.bottom * h)
+                } else {
+                    rect.set(w * 0.05f, h * 0.20f, w * 0.95f, h * 0.72f)
+                }
+                initialized = true
+            }
+        }
+
+        override fun onDraw(canvas: Canvas) {
+            super.onDraw(canvas)
+            canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), shadePaint)
+            canvas.drawRect(rect, fillPaint)
+            canvas.drawRect(rect, borderPaint)
+            drawHandle(canvas, rect.left, rect.top)
+            drawHandle(canvas, rect.right, rect.top)
+            drawHandle(canvas, rect.left, rect.bottom)
+            drawHandle(canvas, rect.right, rect.bottom)
+        }
+
+        override fun onTouchEvent(event: MotionEvent): Boolean {
+            when (event.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    lastX = event.x
+                    lastY = event.y
+                    mode = hitMode(event.x, event.y)
+                    if (mode == Mode.NONE) {
+                        rect.set(event.x, event.y, event.x + minSize, event.y + minSize)
+                        mode = Mode.BOTTOM_RIGHT
+                    }
+                    return true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    val dx = event.x - lastX
+                    val dy = event.y - lastY
+                    updateRect(mode, dx, dy)
+                    lastX = event.x
+                    lastY = event.y
+                    keepInBounds()
+                    invalidate()
+                    return true
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    mode = Mode.NONE
+                    keepInBounds()
+                    invalidate()
+                    return true
+                }
+            }
+            return true
+        }
+
+        fun normalizedRegion(): RectF {
+            keepInBounds()
+            return RectF(
+                (rect.left / width.toFloat()).coerceIn(0f, 1f),
+                (rect.top / height.toFloat()).coerceIn(0f, 1f),
+                (rect.right / width.toFloat()).coerceIn(0f, 1f),
+                (rect.bottom / height.toFloat()).coerceIn(0f, 1f)
+            )
+        }
+
+        private fun drawHandle(canvas: Canvas, x: Float, y: Float) {
+            canvas.drawCircle(x, y, dp(7).toFloat(), handlePaint)
+        }
+
+        private fun hitMode(x: Float, y: Float): Mode {
+            fun near(cx: Float, cy: Float) = abs(x - cx) <= handleSize && abs(y - cy) <= handleSize
+            return when {
+                near(rect.left, rect.top) -> Mode.TOP_LEFT
+                near(rect.right, rect.top) -> Mode.TOP_RIGHT
+                near(rect.left, rect.bottom) -> Mode.BOTTOM_LEFT
+                near(rect.right, rect.bottom) -> Mode.BOTTOM_RIGHT
+                rect.contains(x, y) -> Mode.MOVE
+                else -> Mode.NONE
+            }
+        }
+
+        private fun updateRect(mode: Mode, dx: Float, dy: Float) {
+            when (mode) {
+                Mode.MOVE -> rect.offset(dx, dy)
+                Mode.TOP_LEFT -> { rect.left += dx; rect.top += dy }
+                Mode.TOP_RIGHT -> { rect.right += dx; rect.top += dy }
+                Mode.BOTTOM_LEFT -> { rect.left += dx; rect.bottom += dy }
+                Mode.BOTTOM_RIGHT -> { rect.right += dx; rect.bottom += dy }
+                Mode.NONE -> Unit
+            }
+            if (rect.width() < minSize) rect.right = rect.left + minSize
+            if (rect.height() < minSize) rect.bottom = rect.top + minSize
+        }
+
+        private fun keepInBounds() {
+            if (rect.left > rect.right) {
+                val oldLeft = rect.left
+                rect.left = rect.right
+                rect.right = oldLeft
+            }
+            if (rect.top > rect.bottom) {
+                val oldTop = rect.top
+                rect.top = rect.bottom
+                rect.bottom = oldTop
+            }
+            if (rect.width() < minSize) rect.right = rect.left + minSize
+            if (rect.height() < minSize) rect.bottom = rect.top + minSize
+            if (rect.left < 0f) rect.offset(-rect.left, 0f)
+            if (rect.top < 0f) rect.offset(0f, -rect.top)
+            if (rect.right > width) rect.offset(width - rect.right, 0f)
+            if (rect.bottom > height) rect.offset(0f, height - rect.bottom)
+        }
+
+        private enum class Mode { NONE, MOVE, TOP_LEFT, TOP_RIGHT, BOTTOM_LEFT, BOTTOM_RIGHT }
     }
 }

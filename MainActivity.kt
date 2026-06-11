@@ -66,6 +66,7 @@ class MainActivity : Activity() {
 
         root.addView(primaryButton("Start overlay") { startAnswerLens() })
         root.addView(button("Stop overlay") { stopAnswerLens() })
+        root.addView(button("Close app") { closeApp() })
         root.addView(button("Settings") { startActivity(Intent(this, SettingsActivity::class.java)) })
         root.addView(button("History") { startActivity(Intent(this, HistoryActivity::class.java)) })
 
@@ -94,6 +95,17 @@ class MainActivity : Activity() {
         stopService(Intent(this, ScreenCaptureService::class.java).setAction(ScreenCaptureService.ACTION_STOP))
         Toast.makeText(this, "AnswerLens stopped.", Toast.LENGTH_SHORT).show()
         render()
+    }
+
+    private fun closeApp() {
+        stopService(Intent(this, OverlayService::class.java))
+        stopService(Intent(this, ScreenCaptureService::class.java).setAction(ScreenCaptureService.ACTION_STOP))
+        Toast.makeText(this, "AnswerLens closed.", Toast.LENGTH_SHORT).show()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            finishAndRemoveTask()
+        } else {
+            finish()
+        }
     }
 
     @Deprecated("Deprecated in Android, but still fine for this small no-AndroidX Activity prototype.")

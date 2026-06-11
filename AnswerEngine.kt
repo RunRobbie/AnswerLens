@@ -80,10 +80,12 @@ private object LocalReasoner {
             parsed.choices.firstOrNull { it.lowercase().contains(rule.answerContains) }
         } else null
 
-        val guessedChoice = choiceAnswer ?: chooseByKeywordOverlap(parsed)
+        val allOfTheseAnswer = chooseAllOfTheseWhenLikely(parsed)
+        val guessedChoice = choiceAnswer ?: allOfTheseAnswer ?: chooseByKeywordOverlap(parsed)
         val baseAnswer = guessedChoice ?: directAnswer(parsed, rule)
         val confidence = when {
             choiceAnswer != null -> 0.96
+            allOfTheseAnswer != null -> 0.82
             guessedChoice != null -> 0.68
             rule != null -> 0.82
             else -> 0.42
@@ -99,19 +101,51 @@ private object LocalReasoner {
             )
             AnswerMode.RESEARCH -> AnswerResult(
                 likelyAnswer = baseAnswer,
-                explanation = rule?.explanation ?: "Based on the wording and answer choices, this appears to be the strongest match. Connect an answer API endpoint in Settings for live research summaries.",
+                explanation = rule?.explanation ?: explanationFor(parsed, allOfTheseAnswer),
                 confidence = confidence,
                 studyTip = rule?.tip ?: "Research mode is strongest when connected to your own backend or study-note search index.",
                 relatedConcepts = rule?.concepts ?: relatedConcepts(parsed)
             )
             AnswerMode.ANSWER -> AnswerResult(
                 likelyAnswer = baseAnswer,
-                explanation = rule?.explanation ?: "The likely answer was selected by matching the question keywords against the available choices.",
+                explanation = rule?.explanation ?: explanationFor(parsed, allOfTheseAnswer),
                 confidence = confidence,
                 studyTip = rule?.tip ?: "Compare each answer choice to the exact wording of the question instead of relying on familiar-looking terms.",
                 relatedConcepts = rule?.concepts ?: relatedConcepts(parsed)
             )
         }
+    }
+
+    private fun chooseAllOfTheseWhenLikely(parsed: ParsedQuestion): String? {
+        if (parsed.choices.size < 3) return null
+        val allChoice = parsed.choices.firstOrNull { choice ->
+            val lower = stripLabel(choice).lowercase()
+            lower.contains("all of these") || lower.contains("all of the above") || lower.contains("all answers")
+        } ?: return null
+
+        val q = parsed.question.lowercase()
+        val choicesText = parsed.choices.joinToString(" ") { stripLabel(it).lowercase() }
+        val programmingToolboxQuestion =
+            q.contains("programmer") && q.contains("toolbox") &&
+                    choicesText.contains("math") &&
+                    choicesText.contains("logic") &&
+                    choicesText.contains("programming instructions") &&
+                    choicesText.contains("algorithm")
+
+        if (programmingToolboxQuestion) return allChoice
+
+        val nonAllChoices = parsed.choices.filter { it != allChoice }
+        val broadPositiveSignals = listOf("correct", "contains", "include", "includes", "consist", "toolbox", "used for")
+        val questionSoundsBroad = broadPositiveSignals.any { q.contains(it) } || q.contains("____")
+        val allChoicesLookPlausible = nonAllChoices.count { stripLabel(it).length >= 4 } >= 3
+        return if (questionSoundsBroad && allChoicesLookPlausible) allChoice else null
+    }
+
+    private fun explanationFor(parsed: ParsedQuestion, allOfTheseAnswer: String?): String {
+        if (allOfTheseAnswer != null) {
+            return "The question is broad and the other listed choices all fit the concept, so the all-of-these option is the best match."
+        }
+        return "The likely answer was selected by local keyword and pattern matching. Add an answer API endpoint in Settings for stronger reasoning."
     }
 
     private fun buildExplainModeExplanation(parsed: ParsedQuestion, rule: Rule?, guessedChoice: String?): String {

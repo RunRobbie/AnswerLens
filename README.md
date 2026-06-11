@@ -139,3 +139,28 @@ If you upload through GitHub mobile/browser, keep the root files flat, then crea
 ```
 
 Copy the contents of the root `build-debug-apk.yml` file into that workflow file.
+
+## Update: selected area and movable answer panel
+
+This version adds two overlay improvements:
+
+- **Area button**: Tap the floating **Area** button to draw a rectangle around only the question and answer choices. Tap **Save area**. Future Analyze taps crop the screenshot to that saved rectangle before OCR.
+- **Movable result panel**: After analysis, drag the title line that says **AnswerLens • drag here** to move the answer panel around the screen.
+
+You can also use the result panel buttons:
+
+- **Select analysis area** to redraw the crop rectangle.
+- **Clear analysis area** to go back to full-screen analysis.
+- **Analyze again** to re-run OCR and answer generation.
+
+The Analyze and Area bubbles temporarily hide themselves during screenshot capture so OCR does not read the overlay buttons as part of the quiz.
+
+## Update: close buttons
+
+This version adds dedicated close controls:
+
+- **Close app** on the main AnswerLens screen stops the overlay service, stops screen capture, and closes the Activity.
+- **Exit** floating bubble stops AnswerLens from anywhere while the overlay is running.
+- **Close AnswerLens** in the result panel stops the overlay and screen-capture session.
+
+Use **Minimize** when you only want to hide the answer panel but keep the Analyze bubble running. Use **Exit** or **Close AnswerLens** when you want AnswerLens fully stopped.
