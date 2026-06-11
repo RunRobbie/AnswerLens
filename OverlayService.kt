@@ -33,6 +33,7 @@ import java.text.NumberFormat
 import kotlin.math.abs
 
 class OverlayService : Service() {
+    private enum class SelectionMode { NONE, MOVE, TOP_LEFT, TOP_RIGHT, BOTTOM_LEFT, BOTTOM_RIGHT }
     private lateinit var windowManager: WindowManager
     private val mainHandler = Handler(Looper.getMainLooper())
     private var bubble: Button? = null
@@ -502,7 +503,7 @@ class OverlayService : Service() {
         }
         private val rect = RectF()
         private var initialized = false
-        private var mode = Mode.NONE
+        private var mode = SelectionMode.NONE
         private var lastX = 0f
         private var lastY = 0f
         private val minSize = dp(80).toFloat()
@@ -538,9 +539,9 @@ class OverlayService : Service() {
                     lastX = event.x
                     lastY = event.y
                     mode = hitMode(event.x, event.y)
-                    if (mode == Mode.NONE) {
+                    if (mode == SelectionMode.NONE) {
                         rect.set(event.x, event.y, event.x + minSize, event.y + minSize)
-                        mode = Mode.BOTTOM_RIGHT
+                        mode = SelectionMode.BOTTOM_RIGHT
                     }
                     return true
                 }
@@ -555,7 +556,7 @@ class OverlayService : Service() {
                     return true
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    mode = Mode.NONE
+                    mode = SelectionMode.NONE
                     keepInBounds()
                     invalidate()
                     return true
@@ -578,26 +579,26 @@ class OverlayService : Service() {
             canvas.drawCircle(x, y, dp(7).toFloat(), handlePaint)
         }
 
-        private fun hitMode(x: Float, y: Float): Mode {
+        private fun hitMode(x: Float, y: Float): SelectionMode {
             fun near(cx: Float, cy: Float) = abs(x - cx) <= handleSize && abs(y - cy) <= handleSize
             return when {
-                near(rect.left, rect.top) -> Mode.TOP_LEFT
-                near(rect.right, rect.top) -> Mode.TOP_RIGHT
-                near(rect.left, rect.bottom) -> Mode.BOTTOM_LEFT
-                near(rect.right, rect.bottom) -> Mode.BOTTOM_RIGHT
-                rect.contains(x, y) -> Mode.MOVE
-                else -> Mode.NONE
+                near(rect.left, rect.top) -> SelectionMode.TOP_LEFT
+                near(rect.right, rect.top) -> SelectionMode.TOP_RIGHT
+                near(rect.left, rect.bottom) -> SelectionMode.BOTTOM_LEFT
+                near(rect.right, rect.bottom) -> SelectionMode.BOTTOM_RIGHT
+                rect.contains(x, y) -> SelectionMode.MOVE
+                else -> SelectionMode.NONE
             }
         }
 
-        private fun updateRect(mode: Mode, dx: Float, dy: Float) {
+        private fun updateRect(mode: SelectionMode, dx: Float, dy: Float) {
             when (mode) {
-                Mode.MOVE -> rect.offset(dx, dy)
-                Mode.TOP_LEFT -> { rect.left += dx; rect.top += dy }
-                Mode.TOP_RIGHT -> { rect.right += dx; rect.top += dy }
-                Mode.BOTTOM_LEFT -> { rect.left += dx; rect.bottom += dy }
-                Mode.BOTTOM_RIGHT -> { rect.right += dx; rect.bottom += dy }
-                Mode.NONE -> Unit
+                SelectionMode.MOVE -> rect.offset(dx, dy)
+                SelectionMode.TOP_LEFT -> { rect.left += dx; rect.top += dy }
+                SelectionMode.TOP_RIGHT -> { rect.right += dx; rect.top += dy }
+                SelectionMode.BOTTOM_LEFT -> { rect.left += dx; rect.bottom += dy }
+                SelectionMode.BOTTOM_RIGHT -> { rect.right += dx; rect.bottom += dy }
+                SelectionMode.NONE -> Unit
             }
             if (rect.width() < minSize) rect.right = rect.left + minSize
             if (rect.height() < minSize) rect.bottom = rect.top + minSize
@@ -622,6 +623,5 @@ class OverlayService : Service() {
             if (rect.bottom > height) rect.offset(0f, height - rect.bottom)
         }
 
-        private enum class Mode { NONE, MOVE, TOP_LEFT, TOP_RIGHT, BOTTOM_LEFT, BOTTOM_RIGHT }
     }
 }
