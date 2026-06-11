@@ -73,12 +73,12 @@ class SettingsActivity : Activity() {
         endpoint = EditText(this).apply {
             hint = "https://your-server.example/answer"
             setText(Prefs.apiEndpoint(this@SettingsActivity))
-            singleLine = true
+            setSingleLine(true)
         }
         apiKey = EditText(this).apply {
             hint = "Optional API token for your backend"
             setText(Prefs.apiKey(this@SettingsActivity))
-            singleLine = true
+            setSingleLine(true)
         }
         root.addView(endpoint, matchWrap())
         root.addView(apiKey, matchWrap())
