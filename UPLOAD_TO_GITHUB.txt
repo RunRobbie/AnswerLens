@@ -11,3 +11,5 @@ Upload method for this flat project:
 9. Commit it.
 10. Go to Actions > Build AnswerLens Debug APK > Run workflow.
 11. Download the AnswerLens-debug-apk artifact.
+
+GitHubFix8 adds StudyComSearch.kt. Upload it to the repository root with the other .kt files.

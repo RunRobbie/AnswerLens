@@ -16,6 +16,7 @@ object Prefs {
     const val KEY_API_ENDPOINT = "api_endpoint"
     const val KEY_API_KEY = "api_key"
     const val KEY_ALLOWED_PACKAGES = "allowed_packages"
+    const val KEY_STUDY_COURSE_CODE = "study_course_code"
     const val KEY_REGION_ENABLED = "analysis_region_enabled"
     private const val KEY_REGION_LEFT = "analysis_region_left"
     private const val KEY_REGION_TOP = "analysis_region_top"
@@ -35,6 +36,7 @@ object Prefs {
     fun apiEndpoint(context: Context): String = prefs(context).getString(KEY_API_ENDPOINT, "")?.trim().orEmpty()
     fun apiKey(context: Context): String = prefs(context).getString(KEY_API_KEY, "")?.trim().orEmpty()
     fun allowedPackages(context: Context): String = prefs(context).getString(KEY_ALLOWED_PACKAGES, "")?.trim().orEmpty()
+    fun studyCourseCode(context: Context): String = prefs(context).getString(KEY_STUDY_COURSE_CODE, "")?.trim().orEmpty()
 
     fun analysisRegion(context: Context): RectF? {
         val p = prefs(context)

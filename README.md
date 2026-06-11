@@ -2,6 +2,8 @@
 
 AnswerLens is a side-loadable Android study overlay for study/practice apps you create yourself. It uses a floating Analyze bubble, MediaProjection screen capture, ML Kit OCR, a question parser, and a local/remote answer engine to show study help in an overlay panel.
 
+This version also includes a **Search Study.com** button in the result panel. It opens a browser search limited to Study.com lesson pages, using the detected question, answer choices, topic, and the optional course code/course title saved in Settings.
+
 ## Why this version is flat
 
 This version puts the Android project files in one folder so you can upload the files through GitHub's web upload screen without selecting nested folders.
@@ -164,3 +166,7 @@ This version adds dedicated close controls:
 - **Close AnswerLens** in the result panel stops the overlay and screen-capture session.
 
 Use **Minimize** when you only want to hide the answer panel but keep the Analyze bubble running. Use **Exit** or **Close AnswerLens** when you want AnswerLens fully stopped.
+
+## Study.com search settings
+
+Open Settings and enter a Study.com course code or course title. After an analysis result appears, tap Search Study.com to open a browser search limited to Study.com lesson pages.

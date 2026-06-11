@@ -36,6 +36,22 @@ private object LocalReasoner {
 
     private val rules = listOf(
         Rule(
+            topicContains = "programming basics",
+            questionContains = listOf("two", "important", "skills", "programmer"),
+            answerContains = "analyze",
+            explanation = "The two most important programming skills are understanding/analyzing a problem and describing the solution precisely enough for a computer to follow.",
+            tip = "A programming language is only the tool. The deeper skill is turning a problem into clear, step-by-step instructions.",
+            concepts = listOf("problem analysis", "algorithms", "communication with computers", "decomposition")
+        ),
+        Rule(
+            topicContains = "programming basics",
+            questionContains = listOf("programmer", "toolbox", "contains"),
+            answerContains = "all of these",
+            explanation = "A programmer's toolbox includes math and logic, basic programming instructions, and knowledge of algorithms, so the all-of-these choice is the best answer.",
+            tip = "For broad 'contains' or 'includes' questions, check whether every listed item belongs to the concept before picking an individual choice.",
+            concepts = listOf("math and logic", "programming instructions", "algorithms")
+        ),
+        Rule(
             topicContains = "java",
             questionContains = listOf("define", "class", "keyword"),
             answerContains = "class",
@@ -103,7 +119,7 @@ private object LocalReasoner {
                 likelyAnswer = baseAnswer,
                 explanation = rule?.explanation ?: explanationFor(parsed, allOfTheseAnswer),
                 confidence = confidence,
-                studyTip = rule?.tip ?: "Research mode is strongest when connected to your own backend or study-note search index.",
+                studyTip = rule?.tip ?: "Research mode is strongest when paired with the Search Study.com button or your own answer endpoint.",
                 relatedConcepts = rule?.concepts ?: relatedConcepts(parsed)
             )
             AnswerMode.ANSWER -> AnswerResult(
@@ -192,6 +208,7 @@ private object LocalReasoner {
         parsed.topic.contains("Java", true) -> listOf("syntax", "classes", "methods")
         parsed.topic.contains("SQL", true) -> listOf("tables", "queries", "keys")
         parsed.topic.contains("Web", true) -> listOf("HTML", "CSS", "JavaScript")
+        parsed.topic.contains("Programming basics", true) -> listOf("problem analysis", "algorithms", "logic")
         parsed.topic.contains("Networking", true) -> listOf("protocols", "IP", "DNS")
         else -> listOf("key terms", "definitions", "elimination strategy")
     }

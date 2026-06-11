@@ -3,6 +3,7 @@ package com.example.answerlens
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.ActivityNotFoundException
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
@@ -225,6 +226,7 @@ class OverlayService : Service() {
             setPadding(0, dp(8), 0, 0)
         }
         buttonRow.addView(panelButton("Analyze again") { analyze() })
+        buttonRow.addView(panelButton("Search Study.com") { openStudyComSearch(parsed) })
         buttonRow.addView(panelButton("Select analysis area") { showAreaSelector() })
         buttonRow.addView(panelButton("Clear analysis area") {
             Prefs.clearAnalysisRegion(this)
@@ -310,6 +312,20 @@ class OverlayService : Service() {
             x = 0,
             y = 0
         ))
+    }
+
+
+    private fun openStudyComSearch(parsed: ParsedQuestion) {
+        val intent = Intent(Intent.ACTION_VIEW, StudyComSearch.buildSearchUri(this, parsed)).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        try {
+            startActivity(intent)
+        } catch (_: ActivityNotFoundException) {
+            Toast.makeText(this, "No browser app found for Study.com search.", Toast.LENGTH_LONG).show()
+        } catch (e: Exception) {
+            Toast.makeText(this, e.message ?: "Could not open Study.com search.", Toast.LENGTH_LONG).show()
+        }
     }
 
     private fun showError(message: String) {

@@ -22,6 +22,7 @@ class SettingsActivity : Activity() {
     private lateinit var saveHistory: CheckBox
     private lateinit var endpoint: EditText
     private lateinit var apiKey: EditText
+    private lateinit var studyCourseCode: EditText
     private lateinit var allowedPackages: EditText
     private lateinit var modeGroup: RadioGroup
     private val modeIds = mutableMapOf<Int, AnswerMode>()
@@ -83,6 +84,19 @@ class SettingsActivity : Activity() {
         root.addView(endpoint, matchWrap())
         root.addView(apiKey, matchWrap())
 
+        root.addView(section("Study.com search"))
+        root.addView(TextView(this).apply {
+            text = "Optional. Enter the Study.com course code or course title to refine the Search Study.com button, such as CS 112, Computer Science 112, Business 112, or SQL 107."
+            textSize = 14f
+            setPadding(0, dp(4), 0, dp(8))
+        })
+        studyCourseCode = EditText(this).apply {
+            hint = "Example: Computer Science 112"
+            setText(Prefs.studyCourseCode(this@SettingsActivity))
+            setSingleLine(true)
+        }
+        root.addView(studyCourseCode, matchWrap())
+
         root.addView(section("Use scope"))
         root.addView(TextView(this).apply {
             text = "Use AnswerLens only with study/practice apps you create or have permission to analyze. You can list your own package names here for reference."
@@ -133,6 +147,7 @@ class SettingsActivity : Activity() {
             .putBoolean(Prefs.KEY_SAVE_HISTORY, saveHistory.isChecked)
             .putString(Prefs.KEY_API_ENDPOINT, endpoint.text.toString().trim())
             .putString(Prefs.KEY_API_KEY, apiKey.text.toString().trim())
+            .putString(Prefs.KEY_STUDY_COURSE_CODE, studyCourseCode.text.toString().trim())
             .putString(Prefs.KEY_ALLOWED_PACKAGES, allowedPackages.text.toString().trim())
             .apply()
         Toast.makeText(this, "Settings saved.", Toast.LENGTH_SHORT).show()
