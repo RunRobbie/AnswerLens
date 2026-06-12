@@ -182,3 +182,8 @@ Answer:
 The previous explanation, confidence, study tip, and related-concepts blocks are no longer shown in the overlay panel.
 
 The browser launch uses Android best-effort flags to reuse the existing browser task/tab instead of creating a new tab. Browser apps can still override this behavior, so it cannot be guaranteed on every device or browser.
+
+
+## Fix10 update
+
+This update adds a **Settings / Course code** button inside the floating result panel so the Study.com course code can be edited from the overlay flow. It also improves screen-capture reliability by retrying capture several times before showing an error, and replaces the old generic `Answer: Unavailable` message with a clearer instruction to clear the analysis area or restart screen capture.

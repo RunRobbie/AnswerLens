@@ -210,6 +210,7 @@ class OverlayService : Service() {
         }
         buttonRow.addView(panelButton("Analyze again") { analyze() })
         buttonRow.addView(panelButton("Google AI Study.com Search") { openStudyComSearch(parsed) })
+        buttonRow.addView(panelButton("Settings / Course code") { openSettings() })
         buttonRow.addView(panelButton("Select analysis area") { showAreaSelector() })
         buttonRow.addView(panelButton("Clear analysis area") {
             Prefs.clearAnalysisRegion(this)
@@ -314,6 +315,18 @@ class OverlayService : Service() {
         }
     }
 
+    private fun openSettings() {
+        val intent = Intent(this, SettingsActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
+        }
+        try {
+            startActivity(intent)
+        } catch (e: Exception) {
+            Toast.makeText(this, e.message ?: "Could not open settings.", Toast.LENGTH_LONG).show()
+        }
+    }
+
     private fun showError(message: String) {
         setBubbleText("Analyze")
         removePanel()
@@ -325,7 +338,7 @@ class OverlayService : Service() {
             rawText = ""
         )
         val result = AnswerResult(
-            likelyAnswer = "Unavailable",
+            likelyAnswer = "Could not read the screen. Tap Clear analysis area, then Analyze again. If it still fails, restart AnswerLens and grant screen capture again.",
             explanation = message,
             confidence = 0.0,
             studyTip = "Try opening the study app first, then press Analyze again after the screen is stable.",

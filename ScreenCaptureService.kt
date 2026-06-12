@@ -99,38 +99,46 @@ class ScreenCaptureService : Service() {
     }
 
     fun captureOnce(callback: (Bitmap?, String?) -> Unit) {
-        mainHandler.postDelayed({
-            val reader = imageReader
-            if (reader == null) {
-                callback(null, "Screen capture is not ready. Restart the overlay and grant capture permission again.")
-                return@postDelayed
-            }
+        fun tryAcquire(attempt: Int) {
+            mainHandler.postDelayed({
+                val reader = imageReader
+                if (reader == null) {
+                    callback(null, "Screen capture is not ready. Restart the overlay and grant capture permission again.")
+                    return@postDelayed
+                }
 
-            val image = reader.acquireLatestImage()
-            if (image == null) {
-                callback(null, "No screen image was available yet. Try Analyze again.")
-                return@postDelayed
-            }
+                val image = reader.acquireLatestImage()
+                if (image == null) {
+                    if (attempt < 5) {
+                        tryAcquire(attempt + 1)
+                    } else {
+                        callback(null, "No screen image was available. Tap Analyze again, or restart AnswerLens and grant screen capture again.")
+                    }
+                    return@postDelayed
+                }
 
-            try {
-                val plane = image.planes[0]
-                val buffer = plane.buffer
-                val pixelStride = plane.pixelStride
-                val rowStride = plane.rowStride
-                val rowPadding = rowStride - pixelStride * width
-                val paddedWidth = width + rowPadding / pixelStride
+                try {
+                    val plane = image.planes[0]
+                    val buffer = plane.buffer
+                    val pixelStride = plane.pixelStride
+                    val rowStride = plane.rowStride
+                    val rowPadding = rowStride - pixelStride * width
+                    val paddedWidth = width + rowPadding / pixelStride
 
-                val paddedBitmap = Bitmap.createBitmap(paddedWidth, height, Bitmap.Config.ARGB_8888)
-                paddedBitmap.copyPixelsFromBuffer(buffer)
-                val cropped = Bitmap.createBitmap(paddedBitmap, 0, 0, width, height)
-                if (paddedBitmap != cropped) paddedBitmap.recycle()
-                callback(cropped, null)
-            } catch (e: Exception) {
-                callback(null, e.message ?: "Unable to capture the screen.")
-            } finally {
-                image.close()
-            }
-        }, 350)
+                    val paddedBitmap = Bitmap.createBitmap(paddedWidth, height, Bitmap.Config.ARGB_8888)
+                    paddedBitmap.copyPixelsFromBuffer(buffer)
+                    val cropped = Bitmap.createBitmap(paddedBitmap, 0, 0, width, height)
+                    if (paddedBitmap != cropped) paddedBitmap.recycle()
+                    callback(cropped, null)
+                } catch (e: Exception) {
+                    callback(null, e.message ?: "Unable to capture the screen.")
+                } finally {
+                    image.close()
+                }
+            }, if (attempt == 1) 650L else 250L)
+        }
+
+        tryAcquire(1)
     }
 
     private fun startForegroundNotification() {

@@ -20,3 +20,11 @@ Fix9 update:
 - Result panel now shows only the answer.
 - Search button now opens Google AI Mode with a Study.com-focused search.
 - Browser launch now attempts to reuse the existing browser task/tab instead of opening a fresh tab.
+
+
+Fix10 files to replace:
+- OverlayService.kt
+- ScreenCaptureService.kt
+- README.md
+
+After committing, GitHub Actions should rebuild the APK. In the overlay result panel, use Settings / Course code to enter or change the Study.com course code/title. If Analyze says it cannot read the screen, tap Clear analysis area and try again.
