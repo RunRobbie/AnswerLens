@@ -2,7 +2,7 @@
 
 AnswerLens is a side-loadable Android study overlay for study/practice apps you create yourself. It uses a floating Analyze bubble, MediaProjection screen capture, ML Kit OCR, a question parser, and a local/remote answer engine to show study help in an overlay panel.
 
-This version also includes a **Search Study.com** button in the result panel. It opens a browser search limited to Study.com lesson pages, using the detected question, answer choices, topic, and the optional course code/course title saved in Settings.
+This version also includes a **Google AI Study.com Search** button in the result panel. It opens Google AI Mode with a browser search focused on Study.com lesson pages, using the detected question, answer choices, topic, and the optional course code/course title saved in Settings.
 
 ## Why this version is flat
 
@@ -118,6 +118,7 @@ The endpoint should return JSON with:
 - `QuestionParser.kt` - OCR cleanup and question parsing
 - `AnswerEngine.kt` - local/remote answer flow
 - `SearchRepository.kt` - remote API call support
+- `StudyComSearch.kt` - Google AI Study.com search URL builder
 - `HistoryRepository.kt` - local history storage
 - `SettingsActivity.kt` - settings UI
 - `HistoryActivity.kt` - history UI
@@ -167,6 +168,17 @@ This version adds dedicated close controls:
 
 Use **Minimize** when you only want to hide the answer panel but keep the Analyze bubble running. Use **Exit** or **Close AnswerLens** when you want AnswerLens fully stopped.
 
-## Study.com search settings
+## Google AI Study.com search settings
 
-Open Settings and enter a Study.com course code or course title. After an analysis result appears, tap Search Study.com to open a browser search limited to Study.com lesson pages.
+Open Settings and enter a Study.com course code or course title. After an analysis result appears, tap **Google AI Study.com Search** to open Google AI Mode with a search focused on Study.com lesson pages.
+
+The result panel is now simplified. It only shows:
+
+```text
+Answer:
+<likely answer>
+```
+
+The previous explanation, confidence, study tip, and related-concepts blocks are no longer shown in the overlay panel.
+
+The browser launch uses Android best-effort flags to reuse the existing browser task/tab instead of creating a new tab. Browser apps can still override this behavior, so it cannot be guaranteed on every device or browser.

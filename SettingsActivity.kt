@@ -84,9 +84,9 @@ class SettingsActivity : Activity() {
         root.addView(endpoint, matchWrap())
         root.addView(apiKey, matchWrap())
 
-        root.addView(section("Study.com search"))
+        root.addView(section("Google AI Study.com search"))
         root.addView(TextView(this).apply {
-            text = "Optional. Enter the Study.com course code or course title to refine the Search Study.com button, such as CS 112, Computer Science 112, Business 112, or SQL 107."
+            text = "Optional. Enter the Study.com course code or course title to refine the Google AI Study.com Search button, such as CS 112, Computer Science 112, Business 112, or SQL 107. The search opens Google AI Mode with a site:study.com lesson-page query."
             textSize = 14f
             setPadding(0, dp(4), 0, dp(8))
         })

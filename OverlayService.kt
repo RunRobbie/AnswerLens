@@ -202,31 +202,14 @@ class OverlayService : Service() {
             content.addView(label("Note:", warning, "#FBBF24"))
         }
 
-        val mode = Prefs.answerMode(this)
-        if (mode == AnswerMode.EXPLAIN) {
-            content.addView(label("Topic:", parsed.topic))
-            content.addView(label("Detected Question:", parsed.question))
-            if (Prefs.showExplanation(this)) content.addView(label("Hint / Explanation:", result.explanation))
-        } else {
-            content.addView(label("Detected Question:", parsed.question))
-            if (Prefs.showAnswer(this)) content.addView(label("Likely Answer:", result.likelyAnswer))
-            if (Prefs.showExplanation(this)) content.addView(label("Explanation:", result.explanation))
-        }
-
-        if (Prefs.showConfidence(this)) {
-            content.addView(label("Confidence:", percent(result.confidence)))
-        }
-        content.addView(label("Study Tip:", result.studyTip))
-        if (result.relatedConcepts.isNotEmpty()) {
-            content.addView(label("Related Concepts:", result.relatedConcepts.joinToString(", ")))
-        }
+        content.addView(label("Answer:", result.likelyAnswer))
 
         val buttonRow = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(0, dp(8), 0, 0)
         }
         buttonRow.addView(panelButton("Analyze again") { analyze() })
-        buttonRow.addView(panelButton("Search Study.com") { openStudyComSearch(parsed) })
+        buttonRow.addView(panelButton("Google AI Study.com Search") { openStudyComSearch(parsed) })
         buttonRow.addView(panelButton("Select analysis area") { showAreaSelector() })
         buttonRow.addView(panelButton("Clear analysis area") {
             Prefs.clearAnalysisRegion(this)
@@ -318,6 +301,9 @@ class OverlayService : Service() {
     private fun openStudyComSearch(parsed: ParsedQuestion) {
         val intent = Intent(Intent.ACTION_VIEW, StudyComSearch.buildSearchUri(this, parsed)).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
+            putExtra("com.android.browser.application_id", packageName)
+            putExtra("create_new_tab", false)
         }
         try {
             startActivity(intent)

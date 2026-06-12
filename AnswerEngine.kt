@@ -52,6 +52,14 @@ private object LocalReasoner {
             concepts = listOf("math and logic", "programming instructions", "algorithms")
         ),
         Rule(
+            topicContains = "programming basics",
+            questionContains = listOf("describes", "programming"),
+            answerContains = "all of these",
+            explanation = "Programming can be described as telling a computer what to do, describing a problem in code, and giving instructions so the computer can solve the problem. Because the listed choices are all valid descriptions, the all-of-these choice is the best answer.",
+            tip = "When a question asks which choice describes a broad concept, check whether each individual choice is true before rejecting the all-of-these option.",
+            concepts = listOf("programming definition", "instructions", "problem solving", "code")
+        ),
+        Rule(
             topicContains = "java",
             questionContains = listOf("define", "class", "keyword"),
             answerContains = "class",
@@ -150,8 +158,15 @@ private object LocalReasoner {
 
         if (programmingToolboxQuestion) return allChoice
 
+        val programmingDescriptionQuestion =
+            q.contains("describes") && q.contains("programming") &&
+                    choicesText.contains("telling") && choicesText.contains("computer") &&
+                    choicesText.contains("instructions") && choicesText.contains("solve")
+
+        if (programmingDescriptionQuestion) return allChoice
+
         val nonAllChoices = parsed.choices.filter { it != allChoice }
-        val broadPositiveSignals = listOf("correct", "contains", "include", "includes", "consist", "toolbox", "used for")
+        val broadPositiveSignals = listOf("correct", "contains", "include", "includes", "consist", "toolbox", "used for", "describes", "description")
         val questionSoundsBroad = broadPositiveSignals.any { q.contains(it) } || q.contains("____")
         val allChoicesLookPlausible = nonAllChoices.count { stripLabel(it).length >= 4 } >= 3
         return if (questionSoundsBroad && allChoicesLookPlausible) allChoice else null

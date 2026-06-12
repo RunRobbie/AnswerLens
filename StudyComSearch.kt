@@ -6,7 +6,13 @@ import com.example.answerlens.models.ParsedQuestion
 
 object StudyComSearch {
     fun buildSearchUri(context: Context, parsedQuestion: ParsedQuestion): Uri {
-        return Uri.parse("https://www.google.com/search?q=${Uri.encode(buildQuery(context, parsedQuestion))}")
+        return Uri.Builder()
+            .scheme("https")
+            .authority("www.google.com")
+            .path("search")
+            .appendQueryParameter("udm", "50")
+            .appendQueryParameter("q", buildQuery(context, parsedQuestion))
+            .build()
     }
 
     fun buildQuery(context: Context, parsedQuestion: ParsedQuestion): String {
@@ -16,18 +22,20 @@ object StudyComSearch {
         val choiceTerms = parsedQuestion.choices
             .map { cleanChoice(it) }
             .filter { it.length >= 4 }
-            .take(3)
+            .take(5)
 
         val parts = mutableListOf<String>()
         parts.add("site:study.com/academy/lesson")
+        parts.add("correct answer")
         if (courseCode.isNotBlank()) parts.add(quote(courseCode))
-        if (question.isNotBlank()) parts.add(quote(question.take(140)))
+        if (question.isNotBlank()) parts.add(quote(question.take(160)))
         if (topic.isNotBlank() && !topic.equals("General study", ignoreCase = true)) parts.add(topic)
         choiceTerms.forEach { choice ->
-            if (choice.length <= 70) parts.add(quote(choice)) else parts.add(choice.take(70))
+            val trimmed = choice.take(95)
+            parts.add(quote(trimmed))
         }
 
-        return parts.joinToString(" ").replace(Regex("\\s+"), " ").trim().take(500)
+        return parts.joinToString(" ").replace(Regex("\\s+"), " ").trim().take(850)
     }
 
     private fun cleanChoice(value: String): String = clean(

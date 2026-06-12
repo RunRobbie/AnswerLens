@@ -13,3 +13,10 @@ Upload method for this flat project:
 11. Download the AnswerLens-debug-apk artifact.
 
 GitHubFix8 adds StudyComSearch.kt. Upload it to the repository root with the other .kt files.
+
+
+Fix9 update:
+- Replace AnswerEngine.kt, StudyComSearch.kt, OverlayService.kt, SettingsActivity.kt, README.md, and UPLOAD_TO_GITHUB.txt.
+- Result panel now shows only the answer.
+- Search button now opens Google AI Mode with a Study.com-focused search.
+- Browser launch now attempts to reuse the existing browser task/tab instead of opening a fresh tab.
